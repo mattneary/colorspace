@@ -1,6 +1,6 @@
 # colorspace
 
-![color wheel](image.jpeg)
+<img src="image.jpg" width="250" />
 
 > Assign color hues to a collection of text fragments based on embeddings.
 
