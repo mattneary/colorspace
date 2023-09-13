@@ -31,7 +31,7 @@ def color(nodes: list[Node]) -> list[Node]:
     if len(nodes) > 7:
         raise ValueError('cannot color more than seven nodes')
 
-    vectors = torch.tensor([node.vector for node in nodes])
+    vectors = torch.tensor(np.array([node.vector for node in nodes]))
     affinity = cos_sim(vectors, vectors)
 
     num_empties = max(0, 7 - len(nodes))
