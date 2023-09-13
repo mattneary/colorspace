@@ -39,3 +39,13 @@ class Node:
     content: Group
     vector: np.ndarray
     angle: Optional[float] = None
+
+    @property
+    def angles_str(self) -> str:
+        if self.angle is None:
+            return '----- unassigned'
+        else:
+            out = '----- {:0.2f} centroid'.format(self.angle)
+            for angle, fragment in zip(self.content.angles, self.content.fragments):
+                out += '\n({:0.2f}) {}'.format(angle, fragment)
+            return out

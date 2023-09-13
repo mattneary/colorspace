@@ -1,6 +1,4 @@
-import json
-
-from .color import cluster, color
+from .color import cluster
 
 econ_words = [
     "Interest Rates",
@@ -106,6 +104,5 @@ emotion_words = [
     "Blissful"
 ]
 for node in cluster(emotion_words):
-    print('----- {:0.2f} centroid'.format(node.angle))
-    for angle, fragment in zip(node.content.angles, node.content.fragments):
-        print('({:0.2f}) {}'.format(angle, fragment))
+    print()
+    print(node.angles_str)
