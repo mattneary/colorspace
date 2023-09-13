@@ -1,5 +1,6 @@
-from .color import color, cluster
 import json
+
+from .color import cluster, color
 
 econ_words = [
     "Interest Rates",

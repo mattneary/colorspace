@@ -1,29 +1,32 @@
-import math
-import json
-import scipy
 import itertools
+import json
+import math
+from typing import Iterable, Optional
+
 import numpy as np
+import scipy
 import torch
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import spectral_clustering
-from .utils import Node, Group, cos_sim
+
+from .utils import Group, Node, cos_sim
 
 model = SentenceTransformer('all-mpnet-base-v2')
 
-def get_angle_sims(angles):
+def get_angle_sims(angles: torch.Tensor) -> torch.Tensor:
     '''cos-sim affinity matrix for an array of angles (in radians)'''
     forward = (angles[:, None] - angles[None, :]).abs()
     backward = 360. - angles[:, None] + angles[None, :]
     diff = torch.min(forward, backward)
     return diff.cos()
 
-def get_order_sims(ordering, full_range=None):
+def get_order_sims(ordering: tuple, full_range: Optional[int] =None) -> torch.Tensor:
     '''convert ordering into angles and get affinity matrix'''
     full_range = full_range if full_range is not None else len(ordering)
     angles = torch.tensor(ordering) / full_range * 2 * math.pi
     return get_angle_sims(angles)
 
-def color(nodes):
+def color(nodes: list[Node]) -> list[Node]:
     '''attaches an assigned angle to each node provided'''
     if len(nodes) > 7:
         raise ValueError('cannot color more than seven nodes')
@@ -37,10 +40,10 @@ def color(nodes):
     rs = []
     for order in orders:
       ord_sims = get_order_sims(order, full_range=len(nodes)+num_empties)
-      r = scipy.stats.pearsonr(torch.flatten(affinity), torch.flatten(ord_sims)).statistic
+      r = scipy.stats.pearsonr(torch.flatten(affinity), torch.flatten(ord_sims)).statistic # type: ignore
       rs.append((r, order))
 
-    max_corr, max_order = max(rs, key=lambda p: p[0])
+    _max_corr, max_order = max(rs, key=lambda p: p[0])
     # print('Cluster rho: {}'.format(max_corr))
 
     for idx, node in zip(max_order, nodes):
@@ -48,7 +51,7 @@ def color(nodes):
 
     return nodes
 
-def cluster(fragments):
+def cluster(fragments: list[str]) -> list[Node]:
     '''turns fragments into groups, and wraps groups in nodes, assigning angles to everything'''
     vectors = model.encode(fragments)
     affinity = cos_sim(vectors, vectors)
@@ -57,8 +60,9 @@ def cluster(fragments):
     num_clusters = min(4, len(fragments))
     clustering = spectral_clustering(affinity, n_clusters=num_clusters)
 
-    groups = []
+    groups: list[Group] = []
     for cluster in np.unique(clustering):
+        # Build up groups from the clustering by filtering on the cluster
         g_fragments = []
         g_vectors = []
         for idx, in_cluster in enumerate(clustering == cluster):
@@ -71,7 +75,8 @@ def cluster(fragments):
     coloring = color(nodes)
 
     # Arrange the fragments w/in groups
-    sorted_nodes = sorted(nodes, key=lambda node: node.angle)
+    # TODO: Is this dead code? Should it be coloring instead of nodes?
+    sorted_nodes = sorted(nodes, key=lambda node: node.angle) # type: ignore
     lefts = sorted_nodes[-1:] + sorted_nodes[:-1]
     rights = sorted_nodes[1:] + sorted_nodes[:1]
     for node, left, right in zip(sorted_nodes, lefts, rights):
