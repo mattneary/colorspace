@@ -3,12 +3,17 @@ import json
 import scipy
 import itertools
 import numpy as np
+import networkx as nx
 import torch
 from sentence_transformers import SentenceTransformer
-from sklearn.cluster import spectral_clustering
 from .utils import Node, Group, cos_sim
 
 model = SentenceTransformer('all-mpnet-base-v2')
+
+def group_adjacency(adjacency):
+    G = nx.DiGraph(adjacency)
+    girvan_newman = next(nx.community.girvan_newman(G))
+    return [g for g in girvan_newman if len(list(g)) > 1]
 
 def get_angle_sims(angles):
     '''cos-sim affinity matrix for an array of angles (in radians)'''
@@ -28,11 +33,14 @@ def color(nodes):
     if len(nodes) > 7:
         raise ValueError('cannot color more than seven nodes')
 
-    vectors = torch.tensor([node.vector for node in nodes])
+    vectors = torch.tensor(np.array([node.vector for node in nodes]))
     affinity = cos_sim(vectors, vectors)
 
     num_empties = max(0, 7 - len(nodes))
-    orders = [x[:-num_empties] for x in itertools.permutations(list(range(0, len(nodes)+num_empties)))]
+    orders = [
+        (x[:-num_empties] if num_empties else x)
+        for x in itertools.permutations(list(range(0, len(nodes)+num_empties)))
+    ]
 
     rs = []
     for order in orders:
@@ -48,26 +56,36 @@ def color(nodes):
 
     return nodes
 
-def cluster(fragments):
+def cluster(fragments, threshold=0.7):
     '''turns fragments into groups, and wraps groups in nodes, assigning angles to everything'''
     vectors = model.encode(fragments)
     affinity = cos_sim(vectors, vectors)
 
-    # TODO: how to pick ideal number of clusters?
-    num_clusters = min(4, len(fragments))
-    clustering = spectral_clustering(affinity, n_clusters=num_clusters)
+    np.fill_diagonal(affinity, 0.)
+    if not (affinity >= threshold).any():
+        print('No matches, try a lower threshold')
+        return {}
+
+    clusters = group_adjacency(affinity >= threshold)
 
     groups = []
-    for cluster in np.unique(clustering):
+    for cluster in clusters:
         g_fragments = []
         g_vectors = []
-        for idx, in_cluster in enumerate(clustering == cluster):
-            if in_cluster:
-                g_fragments.append(fragments[idx])
-                g_vectors.append(vectors[idx])
+        for idx in cluster:
+            g_fragments.append(fragments[idx])
+            g_vectors.append(vectors[idx])
         groups.append(Group(g_fragments, g_vectors))
 
+    if len(groups) > 7:
+        groups = sorted(
+            [g for g in groups if len(g.fragments) > 1],
+            key=lambda g: len(g.fragments)
+        )[-7:]
     nodes = [Node(group, group.mean) for group in groups]
+    if len(nodes) < 2:
+        return {}
+
     coloring = color(nodes)
 
     # Arrange the fragments w/in groups

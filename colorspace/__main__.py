@@ -1,3 +1,4 @@
+import sys
 from .color import color, cluster
 import json
 
@@ -104,7 +105,12 @@ emotion_words = [
     "Overwhelmed",
     "Blissful"
 ]
-for node in cluster(emotion_words):
+
+threshold = 0.7
+if len(sys.argv) > 1:
+    threshold = float(sys.argv[1])
+
+for node in cluster(emotion_words, threshold):
     print('----- {:0.2f} centroid'.format(node.angle))
     for angle, fragment in zip(node.content.angles, node.content.fragments):
         print('({:0.2f}) {}'.format(angle, fragment))
