@@ -89,10 +89,10 @@ def cluster(fragments, threshold=0.7):
     coloring = color(nodes)
 
     # Arrange the fragments w/in groups
-    sorted_nodes = sorted(nodes, key=lambda node: node.angle)
+    sorted_nodes = sorted(coloring, key=lambda node: node.angle)
     lefts = sorted_nodes[-1:] + sorted_nodes[:-1]
     rights = sorted_nodes[1:] + sorted_nodes[:1]
     for node, left, right in zip(sorted_nodes, lefts, rights):
         node.content.induce_order(left, right)
 
-    return coloring
+    return sorted_nodes
